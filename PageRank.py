@@ -28,7 +28,7 @@ class Airport:
         self.routeHash: dict[str, Edge] = dict()
 
     def __repr__(self):
-        return f"{self.code}\t{self.pageIndex}\t{self.name}"
+        return f"{self.code}\t{self.name}"
 
 edgeList: list[Edge] = []# list of Edge
 edgeHash: dict[str, Edge] = dict()# hash of edge to ease the match
@@ -94,9 +94,17 @@ def readRoutes(fd):
                 origin.routes.append(edge)
                 origin.routeHash[edge.destination.code] = edge
     routesTxt.close()
+
+    sink_nodes = 0
+    for airport in airportList:
+        if airport.outweight == 0:
+            sink_nodes += 1
+
     print(f"There were {cont} routes with IATA origins and destinations")
+    print(f"{sink_nodes} airports have no outgoing routes")
 
 def computePageRanks(damping: float = 0.85, tolerance=1e-6, max_iteratons = 100):
+    print("Computing pageranks")
     N = len(airportList)
     INITIAL_RANK = 1.0 / N
     CONSTANT_RANK = (1 - damping) / N
@@ -144,15 +152,25 @@ def computePageRanks(damping: float = 0.85, tolerance=1e-6, max_iteratons = 100)
 
         if diff < tolerance:
             print(f"Converged after {iteration + 1} iterations.")
+            print(f"Sink mass contributes {sink_contribution} rank to each node and {sink_rank_sum} in total")
             for i, (key, value) in enumerate(sorted(P.items(), key=lambda item: item[1], reverse=True)):
                 airport = airportHash[key]
                 airport.pageIndex = i + 1
                 airport.pageRank = value
             return iteration
+        
+    print(f"Executed {iteration + 1} iterations, difference is {diff}")
 
 def outputPageRanks():
+    stdout = sys.stdout
+    out = open("pageranks.txt", "w")
+    sys.stdout = out
+    
     for airport in sorted(airportList, key=lambda item: item.pageIndex):
-        print(f"{airport}\t{airport.pageRank}")
+        print(f"{airport.pageIndex}\t{airport.pageRank}\t{airport}")
+    out.close()
+    sys.stdout = stdout
+
 
 def main(argv=None):
     readAirports("airports.txt")
@@ -164,7 +182,14 @@ def main(argv=None):
     print("#Iterations:", iterations)
     print("Time of computePageRanks():", time2-time1)
 
-main()
+if __name__ == "__main__":
+    sys.exit(main())
 
-# if __name__ == "__main__":
-#     sys.exit(main())
+    # import matplotlib.pylab as plt
+
+    # iterations_lambda: dict[int, float] = dict()
+    # for i in range(1, 9):
+    #     _lambda = i * 1.0 / 10
+    #     iterations_lambda[i] = computePageRanks(damping=_lambda)
+    # plt.plot(iterations_lambda.keys(), iterations_lambda.values())
+    # plt.show()
